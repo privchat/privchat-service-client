@@ -1,5 +1,9 @@
 package com.netonstream.privchat.application.module.privchat.client
 
+import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberResponse
+import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.BumpSessionsResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ConfirmQrSceneResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateFriendshipRequest
@@ -304,6 +308,15 @@ interface PrivchatServiceClient {
 
     /** 解散群（删除成员关系 + 频道软删）；不存在 → `NotFound`。 */
     suspend fun dissolveGroup(groupId: Long): DissolveGroupResponse
+
+    /**
+     * 服务端授权建群。被加入者无需同意、无需互为好友 —— 授权来自 service key
+     * 而非发起人的 IM 会话。
+     */
+    suspend fun createGroup(request: CreateGroupRequest): CreateGroupResponse
+
+    /** 加群成员（服务端会附带一条入群公告）。已是活跃成员会被拒绝。 */
+    suspend fun addGroupMember(groupId: Long, userId: Long): AddGroupMemberResponse
 
     /** 移除群成员（soft delete：left_at = now）。Owner 不可移除。 */
     suspend fun removeGroupMember(groupId: Long, userId: Long)

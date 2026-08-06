@@ -1,5 +1,9 @@
 package com.netonstream.privchat.application.module.privchat.client
 
+import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberResponse
+import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ChannelMemberCheck
 import com.netonstream.privchat.application.module.privchat.client.dto.BumpSessionsRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.BumpSessionsResponse
@@ -407,6 +411,16 @@ class PrivchatServiceClientImpl(
         }
         return decodeEnvelope(response, DissolveGroupResponse.serializer())
     }
+
+    override suspend fun createGroup(request: CreateGroupRequest): CreateGroupResponse =
+        post("/api/service/groups", request, CreateGroupResponse.serializer())
+
+    override suspend fun addGroupMember(groupId: Long, userId: Long): AddGroupMemberResponse =
+        post(
+            "/api/service/groups/$groupId/members",
+            AddGroupMemberRequest(userId),
+            AddGroupMemberResponse.serializer(),
+        )
 
     override suspend fun removeGroupMember(groupId: Long, userId: Long) {
         deleteUnit("/api/service/groups/$groupId/members/$userId")
