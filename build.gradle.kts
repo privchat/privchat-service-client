@@ -29,15 +29,10 @@ kotlin {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.serialization.json)
-                implementation(libs.ktor.client.core)
-                implementation(libs.ktor.client.content.negotiation)
-                implementation(libs.ktor.client.logging)
-                implementation(libs.ktor.serialization.kotlinx.json)
+                // 出站 HTTP 只经 Neton 的 HttpClient 契约（引擎由应用决定，默认 hyper4k）。
+                // 本库不带引擎：它借用应用绑定的客户端。
+                implementation("com.netonstream:neton-http")
             }
         }
-
-        macosMain.dependencies { implementation(libs.ktor.client.darwin) }
-        linuxMain.dependencies { implementation(libs.ktor.client.cio) }
-        mingwX64Main.dependencies { implementation(libs.ktor.client.winhttp) }
     }
 }

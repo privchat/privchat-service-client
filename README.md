@@ -8,7 +8,7 @@
 ## 定位
 
 **这不是 application module** —— 没有 `@Module`、controller、migration，依赖只有
-coroutines / serialization / ktor client。任何 Neton application 模块（IM 后台、客服、
+coroutines / serialization / Neton `HttpClient` 契约（不带引擎，借用应用绑定的客户端）。任何 Neton application 模块（IM 后台、客服、
 游戏、助手）都可以单独依赖它，不必牵连彼此。
 
 ```kotlin

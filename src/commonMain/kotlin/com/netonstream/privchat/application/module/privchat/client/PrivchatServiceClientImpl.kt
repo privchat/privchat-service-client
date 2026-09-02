@@ -61,42 +61,40 @@ import com.netonstream.privchat.application.module.privchat.client.dto.SuspendUs
 import com.netonstream.privchat.application.module.privchat.client.dto.UpdateUserRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.UserInfo
 import com.netonstream.privchat.application.module.privchat.client.error.PrivchatServiceException
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.delete
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.client.request.post
-import io.ktor.client.request.put
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import kotlinx.io.IOException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import neton.core.http.HttpHeaders
+import neton.http.client.HttpClient
+import neton.http.client.HttpClientBody
+import neton.http.client.HttpClientError
+import neton.http.client.HttpClientException
+import neton.http.client.HttpClientMethod
+import neton.http.client.HttpClientRequest
+import neton.http.client.HttpClientTimeouts
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.TimeSource
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * 默认 ktor 实现。线程安全，可作单例长期持有。
+ * 经 Neton `HttpClient` 的实现。线程安全，可作单例长期持有。
  *
  * - `baseUrl`：server admin/service API 根（如 `http://localhost:9090`），不含尾斜杠
  * - `serviceMasterKey`：`X-Service-Key` 值
  * - `businessSystemId`：可选，注入 `X-Business-System-Id` 头
+ * - `httpClient`：**借用**应用创建并绑定的出站客户端。本类不创建引擎、不关闭它——
+ *   同一个客户端还服务着 storage / ai / transfer 回调，谁创建谁关闭。
  *
  * `X-Request-Id` 由 client 自动生成（UUID v4），便于链路追踪。
+ * 超时按请求显式给出（connect 3s / request 5s / socket 5s），不依赖借来的客户端
+ * 恰好怎么配置。
  */
 @OptIn(ExperimentalUuidApi::class)
 class PrivchatServiceClientImpl(
     private val baseUrl: String,
     private val serviceMasterKey: String,
     private val businessSystemId: String? = null,
-    private val httpClient: HttpClient = defaultHttpClient(),
+    private val httpClient: HttpClient,
 ) : PrivchatServiceClient, AutoCloseable {
 
     // ──────────── 用户 ────────────
@@ -118,10 +116,8 @@ class PrivchatServiceClientImpl(
 
     override suspend fun getUserByMobile(mobile: String): UserInfo? {
         val path = "/api/service/users/by-mobile/$mobile"
-        val response = httpRequest("GET", path) {
-            httpClient.get(baseUrl + path) { withCommonHeaders() }
-        }
-        if (response.status == HttpStatusCode.NotFound) return null
+        val response = exchange(HttpClientMethod.Get, path, null)
+        if (response.status == 404) return null
         return decodeEnvelope(response, UserInfo.serializer())
     }
 
@@ -308,15 +304,13 @@ class PrivchatServiceClientImpl(
         // HTTP 通道顺手带也无害（server 忽略）。响应 **没有** envelope 包装，
         // 直接是 `{"keys":[...]}`，因此走单独的 `getRaw` 路径，不调 `decodeEnvelope`。
         val path = "/api/service/auth/jwks"
-        val response = httpRequest("GET", path) {
-            httpClient.get(baseUrl + path) { withCommonHeaders() }
-        }
-        val raw = response.bodyAsText()
-        if (response.status.value !in 200..299) {
+        val response = exchange(HttpClientMethod.Get, path, null)
+        val raw = response.body
+        if (response.status !in 200..299) {
             // server 未配置 [auth.rsa_jwt] 时返 503 + 普通 JSON {"error","message"}
             throw PrivchatServiceException.ServerError(
-                code = response.status.value,
-                message = "fetchJwks failed status=${response.status.value} body=$raw",
+                code = response.status,
+                message = "fetchJwks failed status=${response.status} body=$raw",
             )
         }
         return try {
@@ -377,20 +371,18 @@ class PrivchatServiceClientImpl(
         config: com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig,
     ): com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig {
         val path = "/api/service/privacy-config"
-        val response = httpRequest("PUT", path) {
-            httpClient.put(baseUrl + path) {
-                withCommonHeaders()
-                contentType(ContentType.Application.Json)
-                setBody(
-                    kotlinx.serialization.json.JsonObject(
-                        mapOf(
-                            "username_searchable" to
-                                kotlinx.serialization.json.JsonPrimitive(config.usernameSearchable),
-                        ),
+        val response = exchange(
+            HttpClientMethod.Put,
+            path,
+            encode(
+                kotlinx.serialization.json.JsonObject(
+                    mapOf(
+                        "username_searchable" to
+                            kotlinx.serialization.json.JsonPrimitive(config.usernameSearchable),
                     ),
-                )
-            }
-        }
+                ),
+            ),
+        )
         return decodeEnvelope(
             response,
             com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig.serializer(),
@@ -406,9 +398,7 @@ class PrivchatServiceClientImpl(
         getDecoded("/api/service/groups/$groupId", GroupAdminDetail.serializer())
 
     override suspend fun dissolveGroup(groupId: Long): DissolveGroupResponse {
-        val response = httpRequest("DELETE", "/api/service/groups/$groupId") {
-            httpClient.delete(baseUrl + "/api/service/groups/$groupId") { withCommonHeaders() }
-        }
+        val response = exchange(HttpClientMethod.Delete, "/api/service/groups/$groupId", null)
         return decodeEnvelope(response, DissolveGroupResponse.serializer())
     }
 
@@ -428,15 +418,11 @@ class PrivchatServiceClientImpl(
 
     override suspend fun setGroupMemberRole(groupId: Long, userId: Long, role: String) {
         val path = "/api/service/groups/$groupId/members/$userId/role"
-        val response = httpRequest("PUT", path) {
-            httpClient.put(baseUrl + path) {
-                withCommonHeaders()
-                contentType(ContentType.Application.Json)
-                setBody(kotlinx.serialization.json.JsonObject(
-                    mapOf("role" to kotlinx.serialization.json.JsonPrimitive(role))
-                ))
-            }
-        }
+        val response = exchange(
+            HttpClientMethod.Put,
+            path,
+            encode(kotlinx.serialization.json.JsonObject(mapOf("role" to kotlinx.serialization.json.JsonPrimitive(role)))),
+        )
         verifyOk(response)
     }
 
@@ -479,10 +465,8 @@ class PrivchatServiceClientImpl(
 
     override suspend fun lookupDirectChannel(uidA: Long, uidB: Long): Long? {
         val path = "/api/service/direct-channels/lookup?user_a=$uidA&user_b=$uidB"
-        val response = httpRequest("GET", path) {
-            httpClient.get(baseUrl + path) { withCommonHeaders() }
-        }
-        if (response.status == HttpStatusCode.NotFound) return null
+        val response = exchange(HttpClientMethod.Get, path, null)
+        if (response.status == 404) return null
         val data = decodeEnvelope(
             response,
             kotlinx.serialization.json.JsonObject.serializer(),
@@ -492,7 +476,7 @@ class PrivchatServiceClientImpl(
     }
 
     override fun close() {
-        httpClient.close()
+        // 借来的客户端不在这里关：应用创建、应用关闭。保留 AutoCloseable 只为兼容调用方。
     }
 
     // ── 内部工具 ──
@@ -502,13 +486,7 @@ class PrivchatServiceClientImpl(
         body: Req,
         responseSerializer: kotlinx.serialization.KSerializer<T>,
     ): T {
-        val response = httpRequest("POST", path) {
-            httpClient.post(baseUrl + path) {
-                withCommonHeaders()
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }
-        }
+        val response = exchange(HttpClientMethod.Post, path, encode(body))
         return decodeEnvelope(response, responseSerializer)
     }
 
@@ -517,13 +495,7 @@ class PrivchatServiceClientImpl(
         body: Req,
         responseSerializer: kotlinx.serialization.KSerializer<T>,
     ): T {
-        val response = httpRequest("PUT", path) {
-            httpClient.put(baseUrl + path) {
-                withCommonHeaders()
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }
-        }
+        val response = exchange(HttpClientMethod.Put, path, encode(body))
         return decodeEnvelope(response, responseSerializer)
     }
 
@@ -531,60 +503,64 @@ class PrivchatServiceClientImpl(
         path: String,
         responseSerializer: kotlinx.serialization.KSerializer<T>,
     ): T {
-        val response = httpRequest("GET", path) {
-            httpClient.get(baseUrl + path) { withCommonHeaders() }
-        }
+        val response = exchange(HttpClientMethod.Get, path, null)
         return decodeEnvelope(response, responseSerializer)
     }
 
     private suspend inline fun <reified Req> postUnit(path: String, body: Req) {
-        val response = httpRequest("POST", path) {
-            httpClient.post(baseUrl + path) {
-                withCommonHeaders()
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }
-        }
+        val response = exchange(HttpClientMethod.Post, path, encode(body))
         verifyOk(response)
     }
 
     private suspend fun deleteUnit(path: String) {
-        val response = httpRequest("DELETE", path) {
-            httpClient.delete(baseUrl + path) { withCommonHeaders() }
-        }
+        val response = exchange(HttpClientMethod.Delete, path, null)
         verifyOk(response)
     }
 
-    private suspend inline fun httpRequest(
-        method: String,
-        path: String,
-        block: () -> HttpResponse,
-    ): HttpResponse {
+    /** 一次往返的结果。`path` 只用于诊断信息。 */
+    private class Exchange(val status: Int, val body: String, val path: String)
+
+    private inline fun <reified B> encode(body: B): String = JSON.encodeToString(serializer<B>(), body)
+
+    private suspend fun exchange(method: HttpClientMethod, path: String, jsonBody: String?): Exchange {
+        val name = method.name.uppercase()
         val started = TimeSource.Monotonic.markNow()
+        val request = HttpClientRequest(
+            method = method,
+            url = baseUrl + path,
+            headers = commonHeaders(),
+            body = jsonBody?.let { HttpClientBody.Json(it) },
+            timeout = REQUEST_TIMEOUTS,
+        )
         val resp = try {
-            block()
-        } catch (e: HttpRequestTimeoutException) {
-            println("[privchat-svc] $method $path TIMEOUT cause=${e.message}")
-            throw PrivchatServiceException.Timeout("request timed out: $method $path", e)
-        } catch (e: IOException) {
-            println("[privchat-svc] $method $path NETWORK cause=${e.message}")
-            throw PrivchatServiceException.Network("network error: $method $path: ${e.message}", e)
+            httpClient.request(request)
+        } catch (e: HttpClientException) {
+            when (e.error) {
+                is HttpClientError.Timeout -> {
+                    println("[privchat-svc] $name $path TIMEOUT cause=${e.error.message}")
+                    throw PrivchatServiceException.Timeout("request timed out: $name $path", e)
+                }
+                else -> {
+                    println("[privchat-svc] $name $path NETWORK cause=${e.error.message}")
+                    throw PrivchatServiceException.Network("network error: $name $path: ${e.error.message}", e)
+                }
+            }
         }
         val elapsed = started.elapsedNow().inWholeMilliseconds
-        println("[privchat-svc] $method $path → ${resp.status.value} (${elapsed}ms)")
-        return resp
+        println("[privchat-svc] $name $path → ${resp.statusCode} (${elapsed}ms)")
+        return Exchange(resp.statusCode, resp.body, path)
     }
 
     private suspend fun <T> decodeEnvelope(
-        response: HttpResponse,
+        response: Exchange,
         responseSerializer: kotlinx.serialization.KSerializer<T>,
     ): T {
-        val raw = response.bodyAsText()
+        val raw = response.body
         val envelope = try {
             JSON.decodeFromString(ApiEnvelope.serializer(JsonElement.serializer()), raw)
         } catch (e: Exception) {
             throw PrivchatServiceException.Decode(
-                "unable to decode envelope from ${response.status.value}: ${raw.take(256)}",
+                "unable to decode envelope from ${response.status}: ${raw.take(256)}",
                 e,
             )
         }
@@ -592,7 +568,7 @@ class PrivchatServiceClientImpl(
         if (envelope.isOk) {
             val data = envelope.data
                 ?: throw PrivchatServiceException.Decode(
-                    "envelope.code=0 but data is null (path=${response.call.request.url.encodedPath})",
+                    "envelope.code=0 but data is null (path=${response.path})",
                 )
             return try {
                 JSON.decodeFromJsonElement(responseSerializer, data)
@@ -608,13 +584,13 @@ class PrivchatServiceClientImpl(
     }
 
     /** 仅校验 envelope.code==0；data 部分丢弃。用于 Unit 返回的接口。 */
-    private suspend fun verifyOk(response: HttpResponse) {
-        val raw = response.bodyAsText()
+    private suspend fun verifyOk(response: Exchange) {
+        val raw = response.body
         val envelope = try {
             JSON.decodeFromString(ApiEnvelope.serializer(JsonElement.serializer()), raw)
         } catch (e: Exception) {
             throw PrivchatServiceException.Decode(
-                "unable to decode envelope from ${response.status.value}: ${raw.take(256)}",
+                "unable to decode envelope from ${response.status}: ${raw.take(256)}",
                 e,
             )
         }
@@ -622,10 +598,10 @@ class PrivchatServiceClientImpl(
     }
 
     private fun mapErrorEnvelope(
-        status: HttpStatusCode,
+        status: Int,
         code: Int,
         message: String,
-    ): PrivchatServiceException = when (status.value) {
+    ): PrivchatServiceException = when (status) {
         400 -> PrivchatServiceException.BadRequest(code, message)
         401 -> PrivchatServiceException.Unauthorized(code, message)
         403 -> PrivchatServiceException.Forbidden(code, message)
@@ -636,16 +612,17 @@ class PrivchatServiceClientImpl(
         in 500..599 -> PrivchatServiceException.ServerError(code, message)
         else -> PrivchatServiceException.ServerError(
             code,
-            "unexpected HTTP ${status.value}: $message",
+            "unexpected HTTP $status: $message",
         )
     }
 
-    private fun HttpRequestBuilder.withCommonHeaders() {
-        headers {
-            append("X-Service-Key", serviceMasterKey)
-            append("X-Request-Id", Uuid.random().toString())
-            businessSystemId?.let { append("X-Business-System-Id", it) }
-        }
+    private fun commonHeaders(): HttpHeaders {
+        var h = HttpHeaders.of(
+            "X-Service-Key" to serviceMasterKey,
+            "X-Request-Id" to Uuid.random().toString(),
+        )
+        businessSystemId?.let { h = h.add("X-Business-System-Id", it) }
+        return h
     }
 
     /** 用作 `postUnit` 的空 body 占位。 */
@@ -653,6 +630,9 @@ class PrivchatServiceClientImpl(
         kotlinx.serialization.json.JsonObject(emptyMap())
 
     companion object {
+        /** 与旧 Ktor 配置一致：connect 3s / request 5s / socket 5s。 */
+        private val REQUEST_TIMEOUTS = HttpClientTimeouts(connectMillis = 3_000, requestMillis = 5_000, socketMillis = 5_000)
+
         private val JSON = Json {
             ignoreUnknownKeys = true
             encodeDefaults = true
