@@ -203,6 +203,15 @@ class PrivchatServiceClientImpl(
             RoomBroadcastResponse.serializer(),
         )
 
+    override suspend fun sendTransfer(
+        request: com.netonstream.privchat.application.module.privchat.client.dto.TransferSendRequest,
+    ): com.netonstream.privchat.application.module.privchat.client.dto.TransferSendResponse =
+        post(
+            "/api/service/transfer/send",
+            request,
+            com.netonstream.privchat.application.module.privchat.client.dto.TransferSendResponse.serializer(),
+        )
+
     // ──────────── 扫码登录 ────────────
 
     override suspend fun createQrScene(request: CreateQrSceneRequest): QrSceneResponse =

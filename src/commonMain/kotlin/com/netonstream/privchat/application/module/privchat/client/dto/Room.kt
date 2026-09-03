@@ -56,3 +56,23 @@ data class RoomBroadcastResponse(
     @SerialName("server_message_id") val serverMessageId: Long? = null,
     val message: String? = null,
 )
+
+/**
+ * `POST /api/service/transfer/send`：向某个 channel 上的**指定用户**定向投递一条
+ * Transfer 包（server spec transfer §5.2）。业务侧的"PRIVATE 事件"走这里，与 Room
+ * 广播（人人可见）相对。`body` 是 base64 的 UTF-8 文本。
+ */
+@Serializable
+data class TransferSendRequest(
+    @SerialName("request_id") val requestId: String,
+    @SerialName("channel_id") val channelId: Long,
+    @SerialName("target_user_id") val targetUserId: Long,
+    val route: String,
+    val body: String,
+)
+
+@Serializable
+data class TransferSendResponse(
+    val accepted: Boolean = false,
+    @SerialName("delivered_sessions") val deliveredSessions: Int = 0,
+)

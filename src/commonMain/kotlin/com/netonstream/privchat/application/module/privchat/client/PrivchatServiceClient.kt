@@ -164,6 +164,14 @@ interface PrivchatServiceClient {
         senderId: Long? = null,
     ): com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
 
+    /**
+     * 向 channel 上的指定用户定向投递一条 Transfer 包（PRIVATE 事件下发）。
+     * 目标用户必须已订阅该 channel，否则 server 返回 ChannelNotSubscribed。
+     */
+    suspend fun sendTransfer(
+        request: com.netonstream.privchat.application.module.privchat.client.dto.TransferSendRequest,
+    ): com.netonstream.privchat.application.module.privchat.client.dto.TransferSendResponse
+
     // ──────────── 扫码登录 ────────────
 
     /** Web 申请创建场景（state=created）。返回 `qr_token` 由 App 扫码回传。 */
