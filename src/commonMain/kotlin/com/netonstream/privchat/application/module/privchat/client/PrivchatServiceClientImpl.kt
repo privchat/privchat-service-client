@@ -212,6 +212,18 @@ class PrivchatServiceClientImpl(
             com.netonstream.privchat.application.module.privchat.client.dto.TransferSendResponse.serializer(),
         )
 
+    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+    override suspend fun broadcastRoomBytes(
+        channelId: Long,
+        body: ByteArray,
+        senderId: Long?,
+    ): RoomBroadcastResponse =
+        post(
+            "/api/service/room/$channelId/broadcast",
+            RoomBroadcastRequest(contentBase64 = kotlin.io.encoding.Base64.encode(body), senderId = senderId),
+            RoomBroadcastResponse.serializer(),
+        )
+
     // ──────────── 扫码登录 ────────────
 
     override suspend fun createQrScene(request: CreateQrSceneRequest): QrSceneResponse =

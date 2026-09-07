@@ -165,6 +165,16 @@ interface PrivchatServiceClient {
     ): com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
 
     /**
+     * 向 Room channel 广播**原始字节**(FlatBuffers 等二进制协议)。base64 只用于
+     * application→server 这一跳,进入 wire 后是原始字节。
+     */
+    suspend fun broadcastRoomBytes(
+        channelId: Long,
+        body: ByteArray,
+        senderId: Long? = null,
+    ): com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
+
+    /**
      * 向 channel 上的指定用户定向投递一条 Transfer 包（PRIVATE 事件下发）。
      * 目标用户必须已订阅该 channel，否则 server 返回 ChannelNotSubscribed。
      */

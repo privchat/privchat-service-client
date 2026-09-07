@@ -43,7 +43,13 @@ data class CreateRoomResponse(
  */
 @Serializable
 data class RoomBroadcastRequest(
-    val content: String,
+    /** 文本载荷。与 [contentBase64] 二选一;两者都给时 server 以 base64 为准。 */
+    val content: String = "",
+    /**
+     * 二进制载荷(base64 只存在于这一跳 HTTP):server 解码后把**原始字节**放进 wire
+     * 的 `PublishRequest.payload`,订阅者收到的就是这些字节(MMO_ARCHITECTURE_SPEC §7.6)。
+     */
+    @SerialName("content_base64") val contentBase64: String? = null,
     @SerialName("sender_id") val senderId: Long? = null,
 )
 
