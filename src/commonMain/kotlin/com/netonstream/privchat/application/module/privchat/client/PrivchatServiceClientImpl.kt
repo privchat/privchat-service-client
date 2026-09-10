@@ -28,6 +28,7 @@ import com.netonstream.privchat.application.module.privchat.client.dto.IssueAuth
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueImTokenRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueImTokenResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.JwkSet
+import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupMembersResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupsQuery
 import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupsResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ListLoginLogsQuery
@@ -414,6 +415,15 @@ class PrivchatServiceClientImpl(
         val qs = "?page=${query.page}&page_size=${query.pageSize}"
         return getDecoded("/api/service/groups$qs", ListGroupsResponse.serializer())
     }
+
+    override suspend fun listGroupMembers(
+        groupId: Long,
+        page: Int,
+        pageSize: Int,
+    ): ListGroupMembersResponse = getDecoded(
+        "/api/service/groups/$groupId/members?page=$page&page_size=$pageSize",
+        ListGroupMembersResponse.serializer(),
+    )
 
     override suspend fun getGroup(groupId: Long): GroupAdminDetail =
         getDecoded("/api/service/groups/$groupId", GroupAdminDetail.serializer())

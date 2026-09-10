@@ -37,6 +37,16 @@ data class MessageItem(
     @EncodeDefault(EncodeDefault.Mode.ALWAYS) val revoked: Boolean = false,
     @SerialName("revoked_at") val revokedAt: Long? = null,
     @SerialName("revoked_by") val revokedBy: Long? = null,
+    /**
+     * 发送方全局展示字段（server LEFT JOIN privchat_users 带回）。
+     *
+     * 有了它，admin 的会话视图不必再为了把 sender_id 翻成名字去拉整份群花名册；
+     * 账号已删除时为 null，调用方回落到 uid。群内昵称不在这里（那要按 channel
+     * 反查 group_members），需要时另取。
+     */
+    @SerialName("sender_username") val senderUsername: String? = null,
+    @SerialName("sender_display_name") val senderDisplayName: String? = null,
+    @SerialName("sender_avatar_url") val senderAvatarUrl: String? = null,
 )
 
 @Serializable

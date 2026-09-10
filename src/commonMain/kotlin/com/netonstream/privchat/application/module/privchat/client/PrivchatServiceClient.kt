@@ -23,6 +23,7 @@ import com.netonstream.privchat.application.module.privchat.client.dto.IssueAuth
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueImTokenRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueImTokenResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.JwkSet
+import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupMembersResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupsQuery
 import com.netonstream.privchat.application.module.privchat.client.dto.ListGroupsResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.ListLoginLogsQuery
@@ -320,6 +321,17 @@ interface PrivchatServiceClient {
     ): com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig
 
     suspend fun listGroups(query: ListGroupsQuery = ListGroupsQuery()): ListGroupsResponse
+
+    /**
+     * 群成员分页。群详情不再内嵌成员数组，成员一律从这里翻页取。
+     *
+     * server 侧 pageSize 会被 clamp 到 [1, 200]。
+     */
+    suspend fun listGroupMembers(
+        groupId: Long,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): ListGroupMembersResponse
 
     /** 群详情（含群成员）；不存在 → `NotFound`。 */
     suspend fun getGroup(groupId: Long): GroupAdminDetail
