@@ -118,7 +118,7 @@ class PrivchatServiceClientImpl(
         ).isMember
 
     override suspend fun getUserByMobile(mobile: String): UserInfo? {
-        val path = "/api/service/users/by-mobile/$mobile"
+        val path = "/api/service/users/by-mobile/${mobile.pathSegment()}"
         val response = exchange(HttpClientMethod.Get, path, null)
         if (response.status == 404) return null
         return decodeEnvelope(response, UserInfo.serializer())
@@ -143,10 +143,10 @@ class PrivchatServiceClientImpl(
         val qs = buildString {
             append("?page=").append(query.page)
             append("&page_size=").append(query.pageSize)
-            query.search?.let { append("&search=").append(it) }
+            query.search?.let { append("&search=").append(it.queryValue()) }
             query.status?.let { append("&status=").append(it) }
             query.userType?.let { append("&user_type=").append(it) }
-            query.businessSystemId?.let { append("&business_system_id=").append(it) }
+            query.businessSystemId?.let { append("&business_system_id=").append(it.toString().queryValue()) }
         }
         return getDecoded("/api/service/users$qs", ListUsersResponse.serializer())
     }
@@ -172,7 +172,7 @@ class PrivchatServiceClientImpl(
         reason: String?,
     ): RevokeDeviceResponse =
         post(
-            "/api/service/devices/$deviceId/revoke",
+            "/api/service/devices/${deviceId.pathSegment()}/revoke",
             RevokeDeviceRequest(uid, reason),
             RevokeDeviceResponse.serializer(),
         )
@@ -233,7 +233,7 @@ class PrivchatServiceClientImpl(
         post("/api/service/qr-login/scenes", request, QrSceneResponse.serializer())
 
     override suspend fun getQrScene(sceneId: String): QrSceneStatus =
-        getDecoded("/api/service/qr-login/scenes/$sceneId", QrSceneStatus.serializer())
+        getDecoded("/api/service/qr-login/scenes/${sceneId.pathSegment()}", QrSceneStatus.serializer())
 
     override suspend fun scanQrScene(
         sceneId: String,
@@ -244,7 +244,7 @@ class PrivchatServiceClientImpl(
         scannerDisplayName: String?,
     ): ScanQrSceneResponse =
         post(
-            "/api/service/qr-login/scenes/$sceneId/scan",
+            "/api/service/qr-login/scenes/${sceneId.pathSegment()}/scan",
             ScanQrSceneRequest(
                 scannerUid = scannerUid,
                 scannerDeviceId = scannerDeviceId,
@@ -262,7 +262,7 @@ class PrivchatServiceClientImpl(
         confirmToken: String,
     ): ConfirmQrSceneResponse =
         post(
-            "/api/service/qr-login/scenes/$sceneId/confirm",
+            "/api/service/qr-login/scenes/${sceneId.pathSegment()}/confirm",
             ConfirmQrSceneRequest(scannerUid, scannerDeviceId, confirmToken),
             ConfirmQrSceneResponse.serializer(),
         )
@@ -273,7 +273,7 @@ class PrivchatServiceClientImpl(
         confirmToken: String,
     ): RejectQrSceneResponse =
         post(
-            "/api/service/qr-login/scenes/$sceneId/reject",
+            "/api/service/qr-login/scenes/${sceneId.pathSegment()}/reject",
             RejectQrSceneRequest(scannerUid, confirmToken),
             RejectQrSceneResponse.serializer(),
         )
@@ -283,7 +283,7 @@ class PrivchatServiceClientImpl(
         loginResponseJson: JsonElement,
     ): PushQrAuthorizedResponse =
         post(
-            "/api/service/qr-login/scenes/$sceneId/push-authorized",
+            "/api/service/qr-login/scenes/${sceneId.pathSegment()}/push-authorized",
             PushQrAuthorizedRequest(loginResponseJson),
             PushQrAuthorizedResponse.serializer(),
         )
@@ -474,7 +474,7 @@ class PrivchatServiceClientImpl(
             append("?page=").append(query.page)
             append("&page_size=").append(query.pageSize)
             query.userId?.let { append("&user_id=").append(it) }
-            query.ipAddress?.let { append("&ip_address=").append(it) }
+            query.ipAddress?.let { append("&ip_address=").append(it.queryValue()) }
             query.status?.let { append("&status=").append(it) }
             query.startTime?.let { append("&start_time=").append(it) }
             query.endTime?.let { append("&end_time=").append(it) }
@@ -707,3 +707,27 @@ class PrivchatServiceClientImpl(
         }
     }
 }
+
+/**
+ * 调用方给的字符串进 URL 前必须编码:手机号带 `+`、二维码场景 id 与设备 id 是不可信输入,
+ * 原样拼接会把 `/`、`?`、`#` 变成路由的一部分——最轻是 404,最重是打到别的接口。
+ * 路径段与查询值分开:路径段里 `/` 必须编码,查询值里空格编成 `%20` 而不是 `+`。
+ */
+private fun String.pathSegment(): String = percentEncode(this) { c -> c.isUnreservedUrlChar() }
+
+private fun String.queryValue(): String = percentEncode(this) { c -> c.isUnreservedUrlChar() }
+
+private fun Char.isUnreservedUrlChar(): Boolean =
+    this in 'A'..'Z' || this in 'a'..'z' || this in '0'..'9' || this == '-' || this == '.' || this == '_' || this == '~'
+
+private fun percentEncode(raw: String, keep: (Char) -> Boolean): String {
+    val sb = StringBuilder(raw.length + 8)
+    for (b in raw.encodeToByteArray()) {
+        val c = b.toInt() and 0xFF
+        if (c < 0x80 && keep(c.toChar())) sb.append(c.toChar())
+        else sb.append('%').append(HEX[c ushr 4]).append(HEX[c and 0xF])
+    }
+    return sb.toString()
+}
+
+private val HEX = "0123456789ABCDEF".toCharArray()
