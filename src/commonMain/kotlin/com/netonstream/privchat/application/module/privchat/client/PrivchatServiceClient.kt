@@ -163,6 +163,8 @@ interface PrivchatServiceClient {
         channelId: Long,
         content: String,
         senderId: Long? = null,
+        /** 可选 topic 标注(server 原样写进 `PublishRequest.topic`);订阅端据此分流。 */
+        topic: String? = null,
     ): com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
 
     /**
@@ -173,6 +175,7 @@ interface PrivchatServiceClient {
         channelId: Long,
         body: ByteArray,
         senderId: Long? = null,
+        topic: String? = null,
     ): com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
 
     /**

@@ -199,10 +199,11 @@ class PrivchatServiceClientImpl(
         channelId: Long,
         content: String,
         senderId: Long?,
+        topic: String?,
     ): RoomBroadcastResponse =
         post(
             "/api/service/room/$channelId/broadcast",
-            RoomBroadcastRequest(content = content, senderId = senderId),
+            RoomBroadcastRequest(content = content, senderId = senderId, topic = topic),
             RoomBroadcastResponse.serializer(),
         )
 
@@ -220,10 +221,11 @@ class PrivchatServiceClientImpl(
         channelId: Long,
         body: ByteArray,
         senderId: Long?,
+        topic: String?,
     ): RoomBroadcastResponse =
         post(
             "/api/service/room/$channelId/broadcast",
-            RoomBroadcastRequest(contentBase64 = kotlin.io.encoding.Base64.encode(body), senderId = senderId),
+            RoomBroadcastRequest(contentBase64 = kotlin.io.encoding.Base64.encode(body), senderId = senderId, topic = topic),
             RoomBroadcastResponse.serializer(),
         )
 

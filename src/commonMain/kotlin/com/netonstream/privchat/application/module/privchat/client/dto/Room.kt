@@ -51,6 +51,8 @@ data class RoomBroadcastRequest(
      */
     @SerialName("content_base64") val contentBase64: String? = null,
     @SerialName("sender_id") val senderId: Long? = null,
+    /** 可选 topic;server 原样标到 `PublishRequest.topic`,订阅端据此分流。空 = 不标。 */
+    val topic: String? = null,
 )
 
 @Serializable
