@@ -68,7 +68,9 @@ import neton.core.http.HttpHeaders
 import neton.http.client.HttpClient
 import neton.http.client.HttpClientBody
 import neton.http.client.HttpClientError
+import kotlinx.coroutines.delay
 import neton.http.client.HttpClientException
+import neton.http.client.HttpClientResponse
 import neton.http.client.HttpClientMethod
 import neton.http.client.HttpClientRequest
 import neton.http.client.HttpClientTimeouts
@@ -548,6 +550,35 @@ class PrivchatServiceClientImpl(
         verifyOk(response)
     }
 
+
+    /**
+     * 连接阶段失败重试一次。
+     *
+     * 出站引擎在约 10 路并发建连时偶发 `connect: connect failed`（IM 服务端本身扛 20 路直连
+     * 无压力，问题在客户端引擎）。**只有连接阶段**才重试：连接没建立就一个字节都没发出，
+     * 重试对 POST 同样安全 —— 换成请求已发出后的失败就不能这么做，开号会开出两个。
+     * 判定依据是引擎给的错误文本前缀，因为 [HttpClientError.Network] 没有结构化的阶段字段。
+     */
+    private suspend fun requestWithConnectRetry(
+        request: HttpClientRequest,
+        name: String,
+        path: String,
+    ): HttpClientResponse {
+        var attempt = 0
+        while (true) {
+            try {
+                return httpClient.request(request)
+            } catch (e: HttpClientException) {
+                val err = e.error
+                val connectPhase = err is HttpClientError.Network && err.message.startsWith("connect")
+                if (!connectPhase || attempt >= CONNECT_RETRIES) throw e
+                attempt++
+                println("[privchat-svc] $name $path CONNECT-RETRY #$attempt cause=${err.message}")
+                delay(CONNECT_RETRY_DELAY_MS * attempt)
+            }
+        }
+    }
+
     /** 一次往返的结果。`path` 只用于诊断信息。 */
     private class Exchange(val status: Int, val body: String, val path: String)
 
@@ -564,7 +595,7 @@ class PrivchatServiceClientImpl(
             timeout = REQUEST_TIMEOUTS,
         )
         val resp = try {
-            httpClient.request(request)
+            requestWithConnectRetry(request, name, path)
         } catch (e: HttpClientException) {
             when (e.error) {
                 is HttpClientError.Timeout -> {
@@ -661,6 +692,10 @@ class PrivchatServiceClientImpl(
         kotlinx.serialization.json.JsonObject(emptyMap())
 
     companion object {
+        /** 连接阶段失败的额外尝试次数与退避基数（见 requestWithConnectRetry） */
+        const val CONNECT_RETRIES: Int = 2
+        const val CONNECT_RETRY_DELAY_MS: Long = 50
+
         /** 与旧 Ktor 配置一致：connect 3s / request 5s / socket 5s。 */
         private val REQUEST_TIMEOUTS = HttpClientTimeouts(connectMillis = 3_000, requestMillis = 5_000, socketMillis = 5_000)
 
