@@ -315,6 +315,12 @@ interface PrivchatServiceClient {
     // ──────────── Admin: 群组 ────────────
 
     /** 群组列表（仅 page / page_size，server 暂不支持 search）。 */
+    /**
+     * server 账号体系归属（`BUILTIN` / `PLATFORM`）。应用侧不读 server 配置文件，以此为准
+     * （ACCOUNT_IDENTITY_SPEC §6.5：个人助理只在 PLATFORM 开放）。
+     */
+    suspend fun getAccountMode(): com.netonstream.privchat.application.module.privchat.client.dto.AccountModeInfo
+
     /** 读取 IM 平台级隐私配置(PROFILE_VISIBILITY P2)。 */
     suspend fun getPrivacyConfig(): com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig
 

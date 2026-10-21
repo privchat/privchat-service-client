@@ -386,6 +386,13 @@ class PrivchatServiceClientImpl(
 
     // ──────────── Admin: 群组 ────────────
 
+    override suspend fun getAccountMode():
+        com.netonstream.privchat.application.module.privchat.client.dto.AccountModeInfo =
+        getDecoded(
+            "/api/service/account-mode",
+            com.netonstream.privchat.application.module.privchat.client.dto.AccountModeInfo.serializer(),
+        )
+
     override suspend fun getPrivacyConfig():
         com.netonstream.privchat.application.module.privchat.client.dto.PrivacyConfig =
         getDecoded(

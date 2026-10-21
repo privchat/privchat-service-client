@@ -16,7 +16,7 @@ data class CreateUserRequest(
     val email: String? = null,
     @SerialName("display_name") val displayName: String? = null,
     @SerialName("avatar_url") val avatarUrl: String? = null,
-    /** 0=NORMAL（默认）, 1=SYSTEM(保留), 2=BOT */
+    /** 0=NORMAL（默认）, 1=SYSTEM(保留), 2=BOT, 3=PERSONAL_ASSISTANT（ACCOUNT_IDENTITY_SPEC §6.5） */
     @SerialName("user_type") val userType: Int? = null,
     @SerialName("business_system_id") val businessSystemId: String? = null,
 )
