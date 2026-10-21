@@ -77,6 +77,11 @@ data class TransferSendRequest(
     @SerialName("target_user_id") val targetUserId: Long,
     val route: String,
     val body: String,
+    /**
+     * 只投递给目标用户的这一台设备（如某个 Agent 节点）。设置后绝不退化成同 UID 全端投递：
+     * 设备离线 → `deliveredSessions=0`；在线未订阅 → ChannelNotSubscribed。
+     */
+    @SerialName("target_device_id") val targetDeviceId: String? = null,
 )
 
 @Serializable
