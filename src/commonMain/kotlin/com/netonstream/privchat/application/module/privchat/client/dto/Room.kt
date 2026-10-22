@@ -23,6 +23,8 @@ data class CreateRoomRequest(
 data class RevokeRoomAccessRequest(
     @SerialName("user_id") val userId: Long,
     @SerialName("device_id") val deviceId: String? = null,
+    /** Original permission-removal time; retries must reuse the same cutoff. */
+    @SerialName("revoked_before_ms") val revokedBeforeMs: Long? = null,
 )
 
 @Serializable
