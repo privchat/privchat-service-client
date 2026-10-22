@@ -12,6 +12,8 @@ import com.netonstream.privchat.application.module.privchat.client.dto.CreateQrS
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateRoomRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateRoomResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueRoomTicketRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.RevokeRoomAccessRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.RevokeRoomAccessResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueRoomTicketResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.PushQrAuthorizedResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateUserRequest
@@ -153,6 +155,12 @@ interface PrivchatServiceClient {
      * application 进程**不**直接持有 `room_ticket_secret`——签发权聚集在 server。
      */
     suspend fun issueRoomTicket(request: IssueRoomTicketRequest): IssueRoomTicketResponse
+
+    /**
+     * 撤销某用户（指定设备或全部设备）在一个 Room 的访问（ROOM_CHANNEL_SPEC §4.8）：清除现有订阅，
+     * 签发早于撤权的旧票据不能再入场。只影响这个 Room。
+     */
+    suspend fun revokeRoomAccess(channelId: Long, request: RevokeRoomAccessRequest): RevokeRoomAccessResponse
 
     /**
      * 向一个 Room channel 广播消息（发布订阅；推给所有在线订阅者 + 写 room history）。

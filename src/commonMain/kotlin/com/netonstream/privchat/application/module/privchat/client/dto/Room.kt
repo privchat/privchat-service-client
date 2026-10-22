@@ -14,6 +14,22 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CreateRoomRequest(
     val name: String? = null,
+    /** 必须持票订阅：未配置 room ticket 时 server 一律拒绝订阅（ROOM_CHANNEL_SPEC §4.8）。 */
+    @SerialName("ticket_required") val ticketRequired: Boolean = false,
+)
+
+/** `POST /api/service/room/{channel_id}/revoke`。[deviceId] 为 null = 该用户在此 Room 的全部设备。 */
+@Serializable
+data class RevokeRoomAccessRequest(
+    @SerialName("user_id") val userId: Long,
+    @SerialName("device_id") val deviceId: String? = null,
+)
+
+@Serializable
+data class RevokeRoomAccessResponse(
+    @SerialName("channel_id") val channelId: Long,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("sessions_removed") val sessionsRemoved: Int = 0,
 )
 
 /**

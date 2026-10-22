@@ -17,6 +17,8 @@ import com.netonstream.privchat.application.module.privchat.client.dto.CreateRoo
 import com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.RoomBroadcastResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueRoomTicketRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.RevokeRoomAccessRequest
+import com.netonstream.privchat.application.module.privchat.client.dto.RevokeRoomAccessResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.IssueRoomTicketResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateUserRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateUserResponse
@@ -194,6 +196,9 @@ class PrivchatServiceClientImpl(
 
     override suspend fun issueRoomTicket(request: IssueRoomTicketRequest): IssueRoomTicketResponse =
         post("/api/service/room-tickets/issue", request, IssueRoomTicketResponse.serializer())
+
+    override suspend fun revokeRoomAccess(channelId: Long, request: RevokeRoomAccessRequest): RevokeRoomAccessResponse =
+        post("/api/service/room/$channelId/revoke", request, RevokeRoomAccessResponse.serializer())
 
     override suspend fun broadcastRoom(
         channelId: Long,
