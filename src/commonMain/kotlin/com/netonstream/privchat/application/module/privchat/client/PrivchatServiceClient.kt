@@ -407,4 +407,9 @@ interface PrivchatServiceClient {
      * - uidA == uidB → server 返 BadRequest，本方法抛 [PrivchatServiceException.BadRequest]
      */
     suspend fun lookupDirectChannel(uidA: Long, uidB: Long): Long?
+
+    /** Service-authenticated owner-only personal-assistant Direct provisioning. */
+    suspend fun ensurePersonalAssistantDirect(
+        request: com.netonstream.privchat.application.module.privchat.client.dto.EnsurePersonalAssistantDirectRequest,
+    ): com.netonstream.privchat.application.module.privchat.client.dto.EnsurePersonalAssistantDirectResponse
 }

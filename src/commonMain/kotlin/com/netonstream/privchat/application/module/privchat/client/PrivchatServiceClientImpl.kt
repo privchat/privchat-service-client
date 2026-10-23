@@ -499,9 +499,13 @@ class PrivchatServiceClientImpl(
     // ──────────── Admin: 消息查询 ────────────
 
     override suspend fun listMessages(query: ListMessagesQuery): ListMessagesResponse {
+        val cursor = query.afterMessageId
+        if (cursor != null || query.asc) require(cursor != null && cursor >= 0 && query.asc && query.channelId != null &&
+            query.userId == null && query.startTime == null && query.endTime == null && query.page == 1)
         val qs = buildString {
-            append("?page=").append(query.page)
-            append("&page_size=").append(query.pageSize)
+            append("?page_size=").append(query.pageSize)
+            if (cursor == null) append("&page=").append(query.page)
+            else append("&after_message_id=").append(cursor).append("&asc=true")
             query.channelId?.let { append("&channel_id=").append(it) }
             query.userId?.let { append("&user_id=").append(it) }
             query.startTime?.let { append("&start_time=").append(it) }
@@ -521,6 +525,13 @@ class PrivchatServiceClientImpl(
         val raw = data["channel_id"] ?: return null
         return (raw as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull()
     }
+
+    override suspend fun ensurePersonalAssistantDirect(
+        request: com.netonstream.privchat.application.module.privchat.client.dto.EnsurePersonalAssistantDirectRequest,
+    ): com.netonstream.privchat.application.module.privchat.client.dto.EnsurePersonalAssistantDirectResponse = post(
+        "/api/service/direct-channels/ensure", request,
+        com.netonstream.privchat.application.module.privchat.client.dto.EnsurePersonalAssistantDirectResponse.serializer(),
+    )
 
     override fun close() {
         // 借来的客户端不在这里关：应用创建、应用关闭。保留 AutoCloseable 只为兼容调用方。

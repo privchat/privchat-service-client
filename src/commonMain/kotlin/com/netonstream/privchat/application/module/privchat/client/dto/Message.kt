@@ -70,4 +70,6 @@ data class ListMessagesQuery(
     val endTime: Long? = null,
     val page: Int = 1,
     val pageSize: Int = 20,
+    val afterMessageId: Long? = null,
+    val asc: Boolean = false,
 )
