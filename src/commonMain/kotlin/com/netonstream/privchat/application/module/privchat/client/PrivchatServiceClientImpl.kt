@@ -1,5 +1,8 @@
 package com.netonstream.privchat.application.module.privchat.client
 
+import com.netonstream.privchat.application.module.privchat.client.dto.ComponentConfigView
+import com.netonstream.privchat.application.module.privchat.client.dto.UpdateRtcSettings
+
 import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupRequest
@@ -101,6 +104,11 @@ class PrivchatServiceClientImpl(
     private val businessSystemId: String? = null,
     private val httpClient: HttpClient,
 ) : PrivchatServiceClient, AutoCloseable {
+    override suspend fun getComponentConfig(): ComponentConfigView =
+        getDecoded("/api/service/config/components", ComponentConfigView.serializer())
+
+    override suspend fun updateRtcComponentConfig(request: UpdateRtcSettings): ComponentConfigView =
+        put("/api/service/config/components/rtc", request, ComponentConfigView.serializer())
 
     // ──────────── 用户 ────────────
 
