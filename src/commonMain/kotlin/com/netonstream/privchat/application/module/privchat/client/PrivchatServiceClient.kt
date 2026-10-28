@@ -1,5 +1,8 @@
 package com.netonstream.privchat.application.module.privchat.client
 
+import com.netonstream.privchat.application.module.privchat.client.dto.ComponentConfigView
+import com.netonstream.privchat.application.module.privchat.client.dto.UpdateRtcSettings
+
 import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberRequest
 import com.netonstream.privchat.application.module.privchat.client.dto.AddGroupMemberResponse
 import com.netonstream.privchat.application.module.privchat.client.dto.CreateGroupRequest
@@ -60,6 +63,8 @@ import com.netonstream.privchat.application.module.privchat.client.dto.UserInfo
  * 完整方法集对应 spec SERVICE_CLIENT_CONTRACT §2 + QR_API §4。
  */
 interface PrivchatServiceClient {
+    suspend fun getComponentConfig(): ComponentConfigView
+    suspend fun updateRtcComponentConfig(request: UpdateRtcSettings): ComponentConfigView
 
     // ──────────── 用户 ────────────
 

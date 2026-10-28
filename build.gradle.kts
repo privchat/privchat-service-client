@@ -46,5 +46,11 @@ kotlin {
                 implementation("com.netonstream:neton-http")
             }
         }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
     }
 }
